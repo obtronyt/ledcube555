@@ -15,7 +15,8 @@ uint8_t rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
  *testLeds - All LED one by one 
  *randLeds(delay) - Random LEDS ON and OFF 
  *shift25 - Sends 25 bits of data acccepts row value if not specified all rows are lit.
- *all edges only
+ *desings - all edges only
+ *faces - All Faces shift (FB, BF, LR, RL)
  */
 void randLeds(int del=100);
 void shift25(uint32_t data, int row=-1);
