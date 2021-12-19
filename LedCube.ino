@@ -20,6 +20,7 @@ uint8_t rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
 void randLeds(int del=100);
 void shift25(uint32_t data, int row=-1);
 void On(int del=1000);
+void faces();
 void setup() 
 {
   // Set all the pins of 74HC595 as OUTPUT
@@ -35,14 +36,67 @@ void setup()
 
 void loop() 
 {
-//  for(int i=0;i<5;i++){
-//  digitalWrite(latchPin, LOW);
-//  col_var=i==0?0x1f:(col_var<<5);
-//  shift25(col_var);
-//  digitalWrite(latchPin, HIGH);
-//  delay(150);
-//}
-multiplexDemo();
+faces();
+}
+//multiplexDemo();
+void designs(){
+ //Cube Borders
+  for(int i=0;i<5;i++){
+  digitalWrite(latchPin, LOW);
+  if(i==0 || i==4)
+  shift25(0x1F8C63F,i);
+  else
+  shift25(0x1100011,i);
+  digitalWrite(latchPin, HIGH);
+  delay(2);
+  }
+}
+
+void faces(){
+//back to front
+int count=3,del=100;
+while(count>0){
+  for(int i=0;i<5;i++){
+  digitalWrite(latchPin, LOW);
+  col_var=i==0?0x1f:(col_var<<5);
+  shift25(col_var);
+  digitalWrite(latchPin, HIGH);
+  delay(del);}
+  count--; 
+}
+//front to back
+count=3;
+while(count>0){
+  for(int i=0;i<5;i++){
+  digitalWrite(latchPin, LOW);
+  col_var=i==0?(0x1F00000):(col_var>>5);
+  shift25(col_var);
+  digitalWrite(latchPin, HIGH);
+  delay(del);}
+  count--; 
+}
+//left to right
+count=3;
+while(count>0){
+  for(int i=0;i<5;i++){
+  digitalWrite(latchPin, LOW);
+  col_var=i==0?(0x108421):(col_var<<1);
+  shift25(col_var);
+  digitalWrite(latchPin, HIGH);
+  delay(del);}
+  count--; 
+}
+//right to left
+count=3;
+while(count>0){
+  for(int i=0;i<5;i++){
+  digitalWrite(latchPin, LOW);
+  col_var=i==0?(0x1084210):(col_var>>1);
+  shift25(col_var);
+  digitalWrite(latchPin, HIGH);
+  delay(del);}
+  count--; 
+}
 }
 
 void shift25(uint32_t data, int row=-1){
