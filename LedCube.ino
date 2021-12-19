@@ -2,12 +2,24 @@ int latchPin = 10;
 int clockPin = 13; 
 int dataPin = 11;  
 long int curr=0;
-uint32_t tmp=0;
+uint32_t col_var=0;
 uint32_t mask=0;
-uint8_t slice=0;
+uint8_t row_var=0;
 byte leds = 0; 
-byte rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
+uint8_t rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
 
+/*
+ *reset - All OFF 
+ *On(delay) - All ON  
+ *multiplexDemo() - Multiplex ON demo
+ *testLeds - All LED one by one 
+ *randLeds(delay) - Random LEDS ON and OFF 
+ *shift25 - Sends 25 bits of data acccepts row value if not specified all rows are lit.
+ *all edges only
+ */
+void randLeds(int del=100);
+void shift25(uint32_t data, int row=-1);
+void On(int del=1000);
 void setup() 
 {
   // Set all the pins of 74HC595 as OUTPUT
@@ -20,24 +32,57 @@ void setup()
   delay(100);
 }
 
+
 void loop() 
 {
-testLeds();
+//  for(int i=0;i<5;i++){
+//  digitalWrite(latchPin, LOW);
+//  col_var=i==0?0x1f:(col_var<<5);
+//  shift25(col_var);
+//  digitalWrite(latchPin, HIGH);
+//  delay(150);
+//}
+multiplexDemo();
 }
 
-void On(int del){
-  for(int i =0 ; i<5;i++){
+void shift25(uint32_t data, int row=-1){
+  if(row == -1)
+  shiftOut(dataPin, clockPin, LSBFIRST,((data&1)<<7)|0x7c);
+  else
+  shiftOut(dataPin, clockPin, LSBFIRST, ((data&1)<<7)|rows[row]);
+ 
+  shiftOut(dataPin, clockPin, LSBFIRST, (data>>1)&0xFF);
+  shiftOut(dataPin, clockPin, LSBFIRST, ((data>>1)&0xFF00)>>8);
+  shiftOut(dataPin, clockPin, LSBFIRST, ((data>>1)&0xFF0000)>>16);  
+}
+void randLeds(int del=100){
   digitalWrite(latchPin, LOW);
-  leds = rows[i] | 0x80;
-  shiftOut(dataPin, clockPin, LSBFIRST, leds);
-  leds=0xFF;
-  for(int i=0;i<3;i++)
-  {
-    shiftOut(dataPin, clockPin, MSBFIRST, leds);
-  }
+  col_var=0;
+  row_var=random(0,23);
+  for(int i=0; i<row_var; i++)
+  bitSet(col_var, random(0,23));
+  row_var=random(0,4);
+  shift25(col_var,row_var);
   digitalWrite(latchPin, HIGH);
   delay(del);
-  }
+}
+void On(int del=1000){
+  
+  for(int i =0 ; i<5;i++){
+  digitalWrite(latchPin, LOW);
+//  leds = rows[i] | 0x80;
+//  shiftOut(dataPin, clockPin, LSBFIRST, leds);
+//  leds=0xFF;
+//  for(int i=0;i<3;i++)
+//  {
+//    shiftOut(dataPin, clockPin, LSBFIRST, leds);
+//  }
+  col_var=0x1FFFFFF;
+  shift25(col_var,i);
+  digitalWrite(latchPin, HIGH);
+  delay(del);
+ }
+ 
 }
 
 void testLeds(){
@@ -45,15 +90,11 @@ for(int j=0;j<5;j++){
 for(int i=0;i<25;i++)
 {
 digitalWrite(latchPin, LOW);
-tmp=0;
-bitSet(tmp,i);
-shiftOut(dataPin,clockPin, LSBFIRST,rows[j]|((tmp&1)<<7));
-tmp=tmp>>1;
-shiftOut(dataPin, clockPin, LSBFIRST, tmp&0xFF);
-shiftOut(dataPin, clockPin, LSBFIRST, (tmp&0xFF00)>>8);
-shiftOut(dataPin, clockPin, LSBFIRST, (tmp&0xFF0000)>>16);  
-  digitalWrite(latchPin, HIGH);
-  delay(100);
+col_var=0;
+bitSet(col_var,i);
+shift25(col_var, j);
+digitalWrite(latchPin, HIGH);
+delay(100);
 }
 }  
 }
