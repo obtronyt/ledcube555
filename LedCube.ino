@@ -2,6 +2,9 @@ int latchPin = 10;
 int clockPin = 13; 
 int dataPin = 11;  
 long int curr=0;
+uint32_t tmp=0;
+uint32_t mask=0;
+uint8_t slice=0;
 byte leds = 0; 
 byte rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
 
@@ -17,22 +20,9 @@ void setup()
   delay(100);
 }
 
-/*
- * loop() - this function runs over and over again
- */
 void loop() 
 {
-multiplexDemo();
-}
-
-/*
- * updateShiftRegister() - This function sets the latchPin to low, then calls the Arduino function 'shiftOut' to shift out contents of variable 'leds' in the shift register before putting the 'latchPin' high again.
- */
-void updateShiftRegister()
-{
-   digitalWrite(latchPin, LOW);
-   shiftOut(dataPin, clockPin, MSBFIRST, leds);
-   digitalWrite(latchPin, HIGH);
+testLeds();
 }
 
 void On(int del){
@@ -48,6 +38,24 @@ void On(int del){
   digitalWrite(latchPin, HIGH);
   delay(del);
   }
+}
+
+void testLeds(){
+for(int j=0;j<5;j++){
+for(int i=0;i<25;i++)
+{
+digitalWrite(latchPin, LOW);
+tmp=0;
+bitSet(tmp,i);
+shiftOut(dataPin,clockPin, LSBFIRST,rows[j]|((tmp&1)<<7));
+tmp=tmp>>1;
+shiftOut(dataPin, clockPin, LSBFIRST, tmp&0xFF);
+shiftOut(dataPin, clockPin, LSBFIRST, (tmp&0xFF00)>>8);
+shiftOut(dataPin, clockPin, LSBFIRST, (tmp&0xFF0000)>>16);  
+  digitalWrite(latchPin, HIGH);
+  delay(100);
+}
+}  
 }
 
 void multiplexDemo(){
