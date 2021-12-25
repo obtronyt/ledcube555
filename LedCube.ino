@@ -12,22 +12,32 @@ uint8_t rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
 uint8_t rand_cols[25];
 uint32_t heli[8]={0x1084,0x1110,0x7000,0x1041000,0x421000,0x111000,0x1c00,0x1041};
 volatile uint32_t shiftReg[5];
+//x,y,z based
 // Timer 0 PreScale - 64, Freq = 
 /*
+ *************UTILITY FUNCTIONS*******************
+ *shift25 - Sends 25 bits of data acccepts row value if not specified all rows are lit.
  *reset - All OFF   
  *On(delay) - All ON  
- *multiplexDemo() - Multiplex ON demo
+ *pixelSet, pixelDel, pixelVal - set pixel value based on either xyz co-ord o led pos(0-24) and z value
+ *setAllRows - Set same value to all rows(z)
+ ************ANIMATIONS***************************
+ *animateAll - all animations
  *testLeds - All LED one by one 
  *randLeds(delay) - Random LEDS ON and OFF 
- *shift25 - Sends 25 bits of data acccepts row value if not specified all rows are lit.
- *desings - all edges only
+ *cubeBorder - all edges only (5x5x5, 3x3x3, 1x1x1)
  *faces - All Faces shift (FB, BF, LR, RL)
+ *helicopter - FAN animation
+ *rainFall - drop falling effect
  */
-void pixelSet(uint8_t, uint8_t, uint8_t);
+void pixelSet(uint8_t, uint8_t, uint8_t); 
 void pixelDel(uint8_t, uint8_t, uint8_t);
+//led pos(x*5+y), z based To generate non repeating random columns
+void pixelSet(uint8_t, uint8_t);
+void pixelDel(uint8_t, uint8_t);
+
 uint8_t pixelVal(uint8_t, uint8_t, uint8_t);
 void randLeds(int del=100);
-void randLeds2(int del=100,int type=0);
 void shift25(uint32_t data, int row=-1);
 void On();
 void faces();
@@ -36,11 +46,10 @@ void setup()
 
   SPI.begin();
   SPI.beginTransaction(SPISettings(8000000, LSBFIRST, SPI_MODE0));
-
-  for(int i=0;i<25;i++)
+  for(int i=0; i<25;i++)
     rand_cols[i]=i;
 
-cli();
+  cli();
   // Set timer1 interr upt at 1 Hz
   TCCR1A = 0; // Set entire TCCR1A register to 0
   TCCR1B = 0; // Same for TCCR1B
@@ -57,11 +66,9 @@ cli();
   //TCCR1B |= (1 << CS12) | (1 << CS10);
   // Enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
-sei();
-
- 
+  sei();
   reset();
-  Serial.begin(115200);
+  //Serial.begin(115200);
 }
 
 ISR(TIMER1_COMPA_vect){//timer1 triggers every 260us
@@ -76,7 +83,7 @@ ISR(TIMER1_COMPA_vect){//timer1 triggers every 260us
 
 void loop() 
 {
-  cubeBorder();
+  animateAll();
 }
 
 void shift25(uint32_t data, int row=-1){
@@ -103,17 +110,53 @@ void pixelSet(uint8_t x, uint8_t y, uint8_t z){
     shiftReg[z] = shiftReg[z] | 1L<<((x*5)+y);
     //Serial.println(tmp,HEX);
 }
-void pixelDel(int x, int y, int z){
-    shiftReg[z] = shiftReg[z] ^ 1L<<(y+(x*5));
+void pixelDel(uint8_t x, uint8_t y, uint8_t z){
+    shiftReg[z] = shiftReg[z] & ((1L<<(y+(x*5))) ^ 0x1ffffff);
 }
 int pixelVal(int x, int y, int z){
     return ((shiftReg[z] & (1L<<(y+(x*5)))) ==  (1L<<(y+(x*5))));
+}
+void pixelSet(uint8_t ledPos, uint8_t z){
+    shiftReg[z] = shiftReg[z] | 1L<<ledPos;
+    //Serial.println(tmp,HEX);
+}
+void pixelDel(uint8_t ledPos, uint8_t z){
+    shiftReg[z] = shiftReg[z] & ((1L<<ledPos) ^ 0x1ffffff);
 }
 
 void setAllRows(uint_fast32_t value){
   for(int j=0;j<5;j++)
     shiftReg[j]=value;
 }
+
+void animateAll(){
+reset();
+uint8_t c=3;
+testLeds();
+faces();
+while(c>0){
+  cubeBorder();
+  c--;
+}
+randLeds();
+c=3;
+while(c>0){
+  helicopter();
+  c--;
+}
+c=2;
+while(c>0){
+  rainFall();
+  c--;
+}
+for(int i=0;i<5;i++)
+{
+  shiftReg[i]=0x1ffffff;
+  delay(500);
+}
+delay(2000);
+}
+
 void cubeBorder(){
   //5x5x5 cube
   reset();
@@ -194,32 +237,36 @@ void faces(){
   }
 }
 
-
 void randLeds(int del=100){
+reset();
+for(int numLed=0; numLed<80; numLed++){
+    pixelSet(random(0,4),random(0,4),random(0,4));
+    delay(del);
+    }
 }
-void randLeds2(int del=100, int type=0){
-  uint8_t swap,pos;
+void rainFall(){
+  reset();
+  uint8_t swap,pos,z=4;
   for(int i=0;i<25;i++)
-  {  
-     pos=random(0,24);
-     swap=rand_cols[i];
-     rand_cols[i]=rand_cols[pos];
-     rand_cols[pos]=swap;
-//     Serial.println(rand_cols[i]);
-          
+    { pos=random(0,24);
+      swap=rand_cols[i];
+      rand_cols[i]=rand_cols[pos];
+      rand_cols[pos]=swap;
+    }
+  shiftReg[z]=0x1ffffff; 
+  for(int numLeds=0; numLeds<25; numLeds++){
+    z=4;
+    delay(300);
+    pixelDel(rand_cols[numLeds], z);
+    for(z=3;z>=1;z--){
+      pixelSet(rand_cols[numLeds], z);
+      delay(20);
+      pixelDel(rand_cols[numLeds] ,z);
+      }
+    pixelSet(rand_cols[numLeds] ,z);
+    delay(100);
   }
-  delay(2000);
-  col_var=0;
-    for(int i=0;i<25;i++){
-  bitSet(col_var,rand_cols[i]);
-  digitalWrite(SS, LOW);
-  if(type!=0)
-  shift25(col_var,random(0,4));
-  else
-  shift25(col_var);
-  digitalWrite(SS, HIGH);
-  delay(del);
-  }
+  delay(700);
 }
 
 
