@@ -1,16 +1,20 @@
-int latchPin = 10;  
+#include <SPI.h>
+#define POV_DELAY = 64 //260us 3864Hz
 int clockPin = 13; 
 int dataPin = 11;  
 long int delay_ctr_1=0,delay_ctr_2;
 uint32_t col_var=0;
 uint32_t mask=0;
 uint8_t row_var=0;
+volatile uint8_t curr_row=0;
 byte leds = 0; 
 uint8_t rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
 uint8_t rand_cols[25];
 uint32_t heli[8]={0x1084,0x1110,0x7000,0x1041000,0x421000,0x111000,0x1c00,0x1041};
+volatile uint32_t shiftReg[5];
+// Timer 0 PreScale - 64, Freq = 
 /*
- *reset - All OFF 
+ *reset - All OFF   
  *On(delay) - All ON  
  *multiplexDemo() - Multiplex ON demo
  *testLeds - All LED one by one 
@@ -19,158 +23,179 @@ uint32_t heli[8]={0x1084,0x1110,0x7000,0x1041000,0x421000,0x111000,0x1c00,0x1041
  *desings - all edges only
  *faces - All Faces shift (FB, BF, LR, RL)
  */
+void pixelSet(uint8_t, uint8_t, uint8_t);
+void pixelDel(uint8_t, uint8_t, uint8_t);
+uint8_t pixelVal(uint8_t, uint8_t, uint8_t);
 void randLeds(int del=100);
 void randLeds2(int del=100,int type=0);
 void shift25(uint32_t data, int row=-1);
-void On(int del=1000);
+void On();
 void faces();
 void setup() 
 {
-  // Set all the pins of 74HC595 as OUTPUT
-  pinMode(latchPin, OUTPUT);
-  pinMode(dataPin, OUTPUT);  
-  pinMode(clockPin, OUTPUT);
-  Serial.begin(9600);
-  leds=0;
-  reset();
-  delay(100);
+
+  SPI.begin();
+  SPI.beginTransaction(SPISettings(8000000, LSBFIRST, SPI_MODE0));
+
   for(int i=0;i<25;i++)
-  rand_cols[i]=i;
+    rand_cols[i]=i;
+
+cli();
+  // Set timer1 interr upt at 1 Hz
+  TCCR1A = 0; // Set entire TCCR1A register to 0
+  TCCR1B = 0; // Same for TCCR1B
+  TCNT1  = 0; // Initialize counter value to 0
+  // Set compare match register for 3846 Hz increments
+  //15624, CS12 CS10 1Hz | 64, CS11 CS10 3846 Hz
+  //OCR1A = 15624;
+  OCR1A = 64;// = [(16*10^6) / (3846*64)] - 1 (must be <65536)
+  // Turn on CTC mode
+  TCCR1B |= (1 << WGM12);
+  // Set CS11 and CS10 bits for 64 prescaler
+  TCCR1B |= (1 << CS11) | (1 << CS10);
+  // Prescale 1024
+  //TCCR1B |= (1 << CS12) | (1 << CS10);
+  // Enable timer compare interrupt
+  TIMSK1 |= (1 << OCIE1A);
+sei();
+
+ 
+  reset();
+  Serial.begin(115200);
 }
 
+ISR(TIMER1_COMPA_vect){//timer1 triggers every 260us
+  
+    digitalWrite(SS,LOW);
+    shift25(shiftReg[curr_row],curr_row);
+    digitalWrite(SS,HIGH);
+    curr_row++;
+    if(curr_row == 5)
+      curr_row=0;
+}
 
 void loop() 
 {
-
-for(int i=0;i<8;i++)
-{
-digitalWrite(latchPin,LOW);
-  shift25(heli[i]);
- digitalWrite(latchPin,HIGH);
-  delay(250);
-}
- 
-}
-
-void designs(){
-testLeds();
-delay(100);
-faces();
-delay(100);
-cubeBorder();
-reset();
-randLeds2(300,1);
-delay(20);
-randLeds2(300,0);
-delay(20);
-}
-void cubeBorder(){
-   //Cube Borders
-  delay_ctr_1=millis();
-  while(delay_ctr_1+2000>millis()){
-  for(int i=0;i<5;i++){
-  digitalWrite(latchPin, LOW);
-  if(i==0 || i==4)
-  shift25(0x1F8C63F,i);
-  else
-  shift25(0x1100011,i);
-  digitalWrite(latchPin, HIGH);
-  delay(2);
-  }
-  }  
-}
-void faces(){
-int count=3,del=100;
-//Bottom to Top
-while(count>0){
-  for(int i=0;i<5;i++){
-  digitalWrite(latchPin, LOW);
-  col_var=0x1FFFFFF;
-  shift25(col_var,i);
-  digitalWrite(latchPin, HIGH);
-  delay(del);}
-  count--; 
-}
-//Top To Bottom
-count=3;
-while(count>0){
-  for(int i=4;i>=0;i--){
-  digitalWrite(latchPin, LOW);
-  col_var=0x1FFFFFF;
-  shift25(col_var,i);
-  digitalWrite(latchPin, HIGH);
-  delay(del);}
-  count--; 
-}
-//back to front
-count=3;
-while(count>0){
-  for(int i=0;i<5;i++){
-  digitalWrite(latchPin, LOW);
-  col_var=i==0?0x1f:(col_var<<5);
-  shift25(col_var);
-  digitalWrite(latchPin, HIGH);
-  delay(del);}
-  count--; 
-}
-//front to back
-count=3;
-while(count>0){
-  for(int i=0;i<5;i++){
-  digitalWrite(latchPin, LOW);
-  col_var=i==0?(0x1F00000):(col_var>>5);
-  shift25(col_var);
-  digitalWrite(latchPin, HIGH);
-  delay(del);}
-  count--; 
-}
-//left to right
-count=3;
-while(count>0){
-  for(int i=0;i<5;i++){
-  digitalWrite(latchPin, LOW);
-  col_var=i==0?(0x108421):(col_var<<1);
-  shift25(col_var);
-  digitalWrite(latchPin, HIGH);
-  delay(del);}
-  count--; 
-}
-//right to left
-count=3;
-while(count>0){
-  for(int i=0;i<5;i++){
-  digitalWrite(latchPin, LOW);
-  col_var=i==0?(0x1084210):(col_var>>1);
-  shift25(col_var);
-  digitalWrite(latchPin, HIGH);
-  delay(del);}
-  count--; 
-}
+  cubeBorder();
 }
 
 void shift25(uint32_t data, int row=-1){
   if(row == -1)
-  shiftOut(dataPin, clockPin, LSBFIRST,((data&1)<<7)|0x7c);
+  SPI.transfer(((data&1)<<7)|0x7c);
   else
-  shiftOut(dataPin, clockPin, LSBFIRST, ((data&1)<<7)|rows[row]);
- 
-  shiftOut(dataPin, clockPin, LSBFIRST, (data>>1)&0xFF);
-  shiftOut(dataPin, clockPin, LSBFIRST, ((data>>1)&0xFF00)>>8);
-  shiftOut(dataPin, clockPin, LSBFIRST, ((data>>1)&0xFF0000)>>16);  
+  SPI.transfer( ((data&1)<<7)|rows[row]);
+  SPI.transfer((data>>1)&0xFF);
+  SPI.transfer(((data>>1)&0xFF00)>>8);
+  SPI.transfer(((data>>1)&0xFF0000)>>16);  
 }
-void randLeds(int del=100){
-  char num_leds=4;
-  for(int count=0;count<7;count++){
-  digitalWrite(latchPin, LOW);
-  col_var=0;
-  row_var=random(0,3);
-  for(int i=0; i<num_leds; i++)
-  bitSet(col_var, random(0,23));
-  row_var=random(0,4);
-  shift25(col_var,row_var);
-  digitalWrite(latchPin, HIGH);
-  delay(del);
+
+void On(){
+  for(int i =0 ;i<5;i++)
+    shiftReg[i]=0x1ffffff;
+}
+
+void reset(){
+    for(int i=0;i<5;i++)
+        shiftReg[i]=0;
+}
+
+void pixelSet(uint8_t x, uint8_t y, uint8_t z){
+    shiftReg[z] = shiftReg[z] | 1L<<((x*5)+y);
+    //Serial.println(tmp,HEX);
+}
+void pixelDel(int x, int y, int z){
+    shiftReg[z] = shiftReg[z] ^ 1L<<(y+(x*5));
+}
+int pixelVal(int x, int y, int z){
+    return ((shiftReg[z] & (1L<<(y+(x*5)))) ==  (1L<<(y+(x*5))));
+}
+
+void setAllRows(uint_fast32_t value){
+  for(int j=0;j<5;j++)
+    shiftReg[j]=value;
+}
+void cubeBorder(){
+  //5x5x5 cube
+  reset();
+  for(int i=0;i<5;i++)
+   {
+   if(i==0||i==4)
+   shiftReg[i]=0x1F8C63F;
+   else
+   shiftReg[i]=0x1100011;
   }
+  delay(500);
+  //3x3x3 cube | Value Generated from Py Program
+  reset();
+  shiftReg[1]=0x729c0;
+  shiftReg[3]=0x729c0;
+  shiftReg[2]=0x50140;
+  delay(500);
+ //1x1x1
+ reset();
+ pixelSet(2,2,2);
+ delay(500);
+}
+void faces(){
+  int count=3,del=100;
+  //Bottom to Top
+  while(count>0){
+    for(int i=0;i<5;i++){
+    reset();
+    shiftReg[i]=0x1ffffff;
+    delay(del);} 
+    count --;
+  }
+  //Top To Bottom
+  count=3;
+  while(count>0){
+    for(int i=4;i>=0;i--){
+    reset();
+    shiftReg[i]=0x1ffffff;
+    delay(del);} 
+    count --;
+  }
+  // //back to front
+  count=3;
+  while(count>0){
+    for(int i=0;i<5;i++){
+    col_var=i==0?0x1f:(col_var<<5);
+    setAllRows(col_var);
+    delay(del);}
+    count--; 
+  }
+  //front to back
+  count=3;
+  while(count>0){
+    for(int i=0;i<5;i++){
+    col_var=i==0?(0x1F00000):(col_var>>5);
+    setAllRows(col_var);
+    delay(del);}
+    count--; 
+  }
+  reset();
+  //left to right
+  count=3;
+  while(count>0){
+    for(int i=0;i<5;i++){
+    col_var=i==0?(0x108421):(col_var<<1);
+    setAllRows(col_var);
+    delay(del);}
+    count--; 
+  }
+  //right to left
+  count=3;
+  while(count>0){
+    for(int i=0;i<5;i++){
+    col_var=i==0?(0x1084210):(col_var>>1);
+    setAllRows(col_var);
+    delay(del);}
+    count--; 
+  }
+}
+
+
+void randLeds(int del=100){
 }
 void randLeds2(int del=100, int type=0){
   uint8_t swap,pos;
@@ -187,68 +212,38 @@ void randLeds2(int del=100, int type=0){
   col_var=0;
     for(int i=0;i<25;i++){
   bitSet(col_var,rand_cols[i]);
-  digitalWrite(latchPin, LOW);
+  digitalWrite(SS, LOW);
   if(type!=0)
   shift25(col_var,random(0,4));
   else
   shift25(col_var);
-  digitalWrite(latchPin, HIGH);
+  digitalWrite(SS, HIGH);
   delay(del);
   }
 }
 
-void On(int del=1000){
-  
-  for(int i =0 ; i<5;i++){
-  digitalWrite(latchPin, LOW);
-  col_var=0x1FFFFFF;
-  shift25(col_var,i);
-  digitalWrite(latchPin, HIGH);
-  delay(del);
- }
- 
-}
 
 void testLeds(){
-for(int j=0;j<5;j++){
-for(int i=0;i<25;i++)
+reset();
+for(int i=0;i<5;i++)
 {
-digitalWrite(latchPin, LOW);
-col_var=0;
-bitSet(col_var,i);
-shift25(col_var, j);
-digitalWrite(latchPin, HIGH);
-delay(30);
+  for(int j=0;j<5;j++)
+      for(int m=0;m<5;m++){
+        pixelSet(j,m,i);
+        delay(100);
+        }
 }
-}  
 }
-
-void multiplexDemo(){
-  int j=1,del=1000;
-  while(j<9){
-    del=del/2; // 1k 500 250 125 62 31 15 7
-    delay_ctr_1=millis();
-    while(millis()<delay_ctr_1+3000) 
-    On(del);
-    j++;
-  }
-  reset();
-  delay(200);
-}
-
 
 void helicopter(){
-digitalWrite(latchPin,LOW);
-
-digitalWrite(latchPin,HIGH);  
+for(uint8_t i = 0; i<8;i++)
+{
+  setAllRows(heli[i]);
+  delay(250);
+}
 }
 
-void reset(){
-  leds=0;
-  digitalWrite(latchPin, LOW);
-  for(int i=0;i<4;i++)
-  {
-    shiftOut(dataPin, clockPin, MSBFIRST, leds);
-  }
-  digitalWrite(latchPin, HIGH);
-  }
+void disp(){
+    for(int i=0;i <5; i++)
+        Serial.println(shiftReg[i]);
+}
