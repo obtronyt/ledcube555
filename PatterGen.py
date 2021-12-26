@@ -1,6 +1,8 @@
 from tkinter import *
 from tkinter.ttk import *
 
+import os
+import sys
 
 def toggle(id):
         global off
@@ -54,12 +56,27 @@ def pixelDel(id):
             regVal[4] = regVal[4] & ((1<<(id-20))^(0x1ffffff))
 
 def display():
-    global regVal;
+    global regVal
+    global disp
     out=""
     for i,j in enumerate(regVal):
         out=out+str(i)+': '+hex(j)+'\n'
     disp.delete(1.0,END)
     disp.insert(END,out)
+
+def reset_win():
+    global regVal
+    global state
+    global button
+    global ledOff
+    print("lol")
+    for i in range(5):
+        regVal[i]=0
+    display()
+    for i in range(0,25):
+        state[i]=0
+        button[i]['image']=ledOff
+
 regVal=[0,0,0,0,0]
 leds=list()
 state=list()
@@ -69,16 +86,19 @@ for led in range (0,25):
     state.append(0)
 button=list()
 win = Tk()
+win.title("Pattern Gen by Obtron")
 f1= LabelFrame(win)
 f1.grid(row=0,column=0,padx=10,pady=10)
 f2= LabelFrame(win)
-f2.grid(row=1,column=0,padx=10,pady=10)
+f2.grid(row=1,column=0,padx=10)
 f3= LabelFrame(win)
-f3.grid(row=0,column=1,padx=10,pady=10)
+f3.grid(row=0,column=1,padx=10)
+f4= LabelFrame(win)
+f4.grid(row=2,column=0,padx=10)
 disp=Text(f3,height=10,width=20,bg="light cyan")
 ledOff = PhotoImage(file='GreyButton.png')
 ledOn = PhotoImage(file='RedButton.png')
-win.geometry('500x400')
+win.geometry('450x400')
 for i in range (5):
     for j in range(5):
         pos=j+(i*5)	
@@ -91,5 +111,7 @@ values = {"Top View" : "1","Front View" : "2"}
 # rather than creating each button separately
 for (text, value) in values.items():
     Radiobutton(f2, text = text, variable = v,value = value).pack()
+res=Button(f4, text="Reset", command=reset_win)
+res.grid(row=0)
 disp.pack()
 win.mainloop()
