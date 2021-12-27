@@ -27,15 +27,15 @@ def pixelAdd(id):
         print(hex(regVal[0]))
     else: #Front View
         if(id<5):
-            regVal[0] = regVal[0] | 1<<id
+            regVal[4] = regVal[4] | 1<<id
         elif (id<10):
-            regVal[1] = regVal[1] | 1<<(id-5)
+            regVal[3] = regVal[3] | 1<<(id-5)
         elif (id<15):
             regVal[2] = regVal[2] | 1<<(id-10)
         elif (id<20):
-            regVal[3] = regVal[3] | 1<<(id-15)
+            regVal[1] = regVal[1] | 1<<(id-15)
         elif (id<25):
-            regVal[4] = regVal[4] | 1<<(id-20)
+            regVal[0] = regVal[0] | 1<<(id-20)
 def pixelDel(id):
     global regVal
     global v
@@ -45,15 +45,15 @@ def pixelDel(id):
         print(hex(regVal[0]))
     else: #Front View
         if(id<5):
-            regVal[0] = regVal[0] & ((1<<id)^(0x1ffffff))
+            regVal[4] = regVal[4] & ((1<<id)^(0x1ffffff))
         elif (id<10):
-            regVal[1] = regVal[1] & ((1<<(id-5))^(0x1ffffff))
+            regVal[3] = regVal[3] & ((1<<(id-5))^(0x1ffffff))
         elif (id<15):
             regVal[2] = regVal[2] & ((1<<(id-10))^(0x1ffffff))
         elif (id<20):
-            regVal[3] = regVal[3] & ((1<<(id-15))^(0x1ffffff))
+            regVal[1] = regVal[1] & ((1<<(id-15))^(0x1ffffff))
         elif (id<25):
-            regVal[4] = regVal[4] & ((1<<(id-20))^(0x1ffffff))
+            regVal[0] = regVal[0] & ((1<<(id-20))^(0x1ffffff))
 
 def display():
     global regVal

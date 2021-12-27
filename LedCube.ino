@@ -1,5 +1,4 @@
 #include <SPI.h>
-#define POV_DELAY = 64 //260us 3846Hz
 uint32_t col_var=0;
 volatile uint8_t curr_row=0;
 uint8_t rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
@@ -7,19 +6,56 @@ uint8_t rand_cols[25];
 uint32_t heli[8]={0x1084,0x1110,0x7000,0x1041000,0x421000,0x111000,0x1c00,0x1041};
 volatile uint32_t shiftReg[5];
 uint32_t numbers[10][5]={
-                        {0xe,0xa,0xa,0xa,0xe},
-                        {},
-                        {},
-                        {},
-                        {},
-                        {},
-                        {},
-                        {},
-                        {},
-                        {}
+                        {0xe,0xa,0xa,0xa,0xe}, //0
+                        {0xe,0x4,0x4,0x4,0x6}, //1
+                        {0xe,0x2,0xe,0x8,0xe}, //2
+                        {0xe,0x8,0xe,0x8,0xe}, //3
+                        {0x8,0x8,0xe,0xa,0xa}, //4
+                        {0xe,0x8,0xe,0x2,0xe}, //5
+                        {0xe,0xa,0xe,0x2,0xe}, //6
+                        {0x8,0x8,0x8,0x8,0xe}, //7
+                        {0xe,0xa,0xe,0xa,0xe}, //8
+                        {0xe,0x8,0xe,0xa,0xe}  //9
                       };
-
-
+uint32_t alpha[26][5]={
+                        {0x11,0x11,0x1f,0x11,0xe}, //a
+                        {0xf,0x11,0x1f,0x11,0xf}, //b
+                        {0x1f,0x1,0x1,0x1,0x1f}, //c
+                        {0xf,0x11,0x11,0x11,0xf}, //d
+                        {0x1f,0x1,0x1f,0x1,0x1f}, //e
+                        {0x1,0x1,0x1f,0x1,0x1f}, //f
+                        {0xf,0x10,0x1f,0x11,0x1f}, //g
+                        {0x11,0x11,0x1f,0x11,0x11}, //h
+                        {0x1f,0x4,0x4,0x4,0x1f}, //i
+                        {0x7,0x4,0x4,0x4,0x1f},  //j
+                        {0x11,0x9,0x7,0x9,0x11},  //k
+                        {0x1f,0x1,0x1,0x1,0x1},  //l
+                        {0x11,0x11,0x15,0x1b,0x11},  //m
+                        {0x11,0x19,0x15,0x13,0x11},  //n
+                        {0xe,0x11,0x11,0x11,0xe},  //o
+                        {0x1,0x1,0x1f,0x11,0x1f},  //p
+                        {0x1f,0x19,0x15,0x11,0x1f},  //q
+                        {0x11,0x9,0x1f,0x11,0x1f},  //r
+                        {0x1f,0x10,0x1f,0x1,0x1f},  //s
+                        {0x4,0x4,0x4,0x4,0x1f},  //t
+                        {0x1f,0x11,0x11,0x11,0x11},  //u
+                        {0x4,0xa,0x11,0x11,0x11},  //v
+                        {0x11,0x1b,0x15,0x11,0x11},  //w
+                        {0x11,0xa,0x4,0xa,0x11},  //x
+                        {0x4,0x4,0x4,0xa,0x11},  //y
+                        {0x1f,0x2,0x4,0x8,0x1f},  //z
+                      };
+uint32_t sine2d[5][5]={
+                        {0x8,0x14,0x15,0x5,0x2},
+                        {0x10,0x9,0xb,0xa,0x4},
+                        {0x1,0x12,0x16,0x14,0x8},
+                        {0x2,0x5,0xd,0x9,0x10},
+                        {0x4,0xa,0x1a,0x12,0x1}
+                      };
+char allstr[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+char str[]="HPYNEWYEAR";
+char ytname[]="OBTRON";
+uint8_t numArray[4]={2,0,2,2};
 //x,y,z based
 // Timer 1 PreScale - 64, Freq = 3846
 /*
@@ -29,14 +65,18 @@ uint32_t numbers[10][5]={
  *On(delay) - All ON  
  *pixelSet, pixelDel, pixelVal - set pixel value based on either xyz co-ord o led pos(0-24) and z value
  *setAllRows - Set same value to all rows(z)
+ *setAllFaces - Set all Faces with same value
  ************ANIMATIONS***************************
  *animateAll - all animations
  *testLeds - All LED one by one 
  *randLeds(delay) - Random LEDS ON and OFF 
  *cubeBorder - all edges only (5x5x5, 3x3x3, 1x1x1)
  *faces - All Faces shift (FB, BF, LR, RL)
+ *sinewave - Sine wave animation
  *helicopter - FAN animation
  *rainFall - drop falling effect
+ *disp_num, disp_alpha, disp_str, disp_numArray - Display user specified alpha and numbers
+ *allNum - Display all numbers 
  */
 
 //x y z co-ord based pixel on
@@ -106,6 +146,7 @@ void shift25(uint32_t data, int row=-1){
   SPI.transfer(((data>>1)&0xFF0000)>>16);  
 }
 
+
 void On(){
   for(int i =0 ;i<5;i++)
     shiftReg[i]=0x1ffffff;
@@ -134,11 +175,54 @@ void pixelDel(uint8_t ledPos, uint8_t z){
     shiftReg[z] = shiftReg[z] & ((1L<<ledPos) ^ 0x1ffffff);
 }
 
-void setAllRows(uint_fast32_t value){
+void setAllRows(uint32_t value){
   for(int j=0;j<5;j++)
     shiftReg[j]=value;
 }
 
+void setAllFaces(uint32_t value, uint8_t reg){
+    shiftReg[reg] = value<<(0) | value<<(5) | value<<(10) | value<<(15) | value<<(20) ; 
+}
+
+
+void disp_string(char * st){
+  uint8_t c=0;
+  while(st[c]!='\0'){
+    disp_alpha(st[c]);
+    c++;
+  }
+}
+
+void disp_alpha(char c){
+  uint8_t temp = c - 'A'; 
+  for(int i=0;i<5;i++)
+  { 
+    for(int j=0; j<5;j++)
+      shiftReg[j]=alpha[temp][j]<<(i*5);
+    delay(200);    
+  }
+}
+
+void disp_numArr(uint8_t * arr, uint8_t len){
+  for(uint8_t i=0; i<len; i++)
+    disp_num(arr[i]);
+}
+
+void disp_num(uint8_t num){
+  for(int i=0;i<5;i++)
+  { 
+    for(int j=0; j<5;j++)
+      shiftReg[j]=numbers[num][j]<<(i*5);
+    delay(200);    
+  }
+}
+
+void allNum(){
+  for(int p=0;p<10;p++){
+  disp_num(p);
+  delay(10);
+  }
+}
 void animateAll(){
   reset();
   delay(500);
@@ -155,6 +239,11 @@ void animateAll(){
     helicopter();
     c--;
   }
+  c=7;
+  while(c>0){
+    sinewave();
+    c--;
+  }
   c=2;
   while(c>0){
     rainFall();
@@ -166,8 +255,24 @@ void animateAll(){
     delay(500);
   }
   delay(2000);
+  disp_string(str);  
+  disp_numArr(numArray,4);
+  reset();
+  delay(500);
+  disp_string(ytname);
+  reset();
+  delay(3000);
   }
 
+void sinewave(){
+  for(int i=0;i<5;i++){
+    for(int j=0;j<5;j++)
+    {
+      setAllFaces(sine2d[i][j],j); 
+    }
+    delay(180);
+  }
+}
   void cubeBorder(){
     //5x5x5 cube
     reset();
@@ -280,7 +385,6 @@ void rainFall(){
   }
   delay(700);
 }
-
 
 void testLeds(){
   reset();
