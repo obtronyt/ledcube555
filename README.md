@@ -1,5 +1,7 @@
 # LED CUBE 5x5x5  
 # Schematic  
+![alt text](https://github.com/obtronyt/ledcube555/blob/master/Schematic.png?raw=true)  
+  
 # Youtube Link  
 
 # How to make animations using Pattern Gen  
