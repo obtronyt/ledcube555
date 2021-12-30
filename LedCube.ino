@@ -1,9 +1,17 @@
+/*
+Author: Obtron
+Use this as you please
+*/
+
+
 #include <SPI.h>
+#include <math.h>
 uint32_t col_var=0;
 volatile uint8_t curr_row=0;
 uint8_t rows[5] = {0x40,0x20, 0x10, 0x08, 0x04};
 uint8_t rand_cols[25];
 uint32_t heli[8]={0x1084,0x1110,0x7000,0x1041000,0x421000,0x111000,0x1c00,0x1041};
+uint32_t heliFull[4]={0x421084,0x111110,0x7c00,0x1041041};
 volatile uint32_t shiftReg[5];
 uint32_t numbers[10][5]={
                         {0xe,0xa,0xa,0xa,0xe}, //0
@@ -53,7 +61,7 @@ uint32_t sine2d[5][5]={
                         {0x4,0xa,0x1a,0x12,0x1}
                       };
 char allstr[]="ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-char str[]="HPYNEWYEAR";
+char str[]="HAPPYNEWYEAR";
 char ytname[]="OBTRON";
 uint8_t numArray[4]={2,0,2,2};
 //x,y,z based
@@ -73,6 +81,7 @@ uint8_t numArray[4]={2,0,2,2};
  *cubeBorder - all edges only (5x5x5, 3x3x3, 1x1x1)
  *faces - All Faces shift (FB, BF, LR, RL)
  *sinewave - Sine wave animation
+ *sinewave3d - 3d Sinewave
  *helicopter - FAN animation
  *rainFall - drop falling effect
  *disp_num, disp_alpha, disp_str, disp_numArray - Display user specified alpha and numbers
@@ -90,7 +99,7 @@ uint8_t pixelVal(uint8_t, uint8_t, uint8_t);
 
 //Functions
 void randLeds(int del=100);
-void shift25(uint32_t data, int row=-1);
+void shift25(uint32_t data, int row);
 void setup() 
 {
   //8Mhz SPI for shift reg communication
@@ -132,14 +141,13 @@ ISR(TIMER1_COMPA_vect){//timer1 triggers every 260us
 
 void loop() 
 {
-  animateAll();
+
+animateAll();
+
 }
 
 //Convert input data to covert 8bit chunks based on row values
-void shift25(uint32_t data, int row=-1){
-  if(row == -1)
-  SPI.transfer(((data&1)<<7)|0x7c);
-  else
+void shift25(uint32_t data, int row){
   SPI.transfer( ((data&1)<<7)|rows[row]);
   SPI.transfer((data>>1)&0xFF);
   SPI.transfer(((data>>1)&0xFF00)>>8);
@@ -234,11 +242,9 @@ void animateAll(){
     c--;
   }
   randLeds();
-  c=3;
-  while(c>0){
-    helicopter();
-    c--;
-  }
+  sineWave3d();
+  reset();
+  helicopter();
   c=7;
   while(c>0){
     sinewave();
@@ -273,7 +279,32 @@ void sinewave(){
     delay(180);
   }
 }
-  void cubeBorder(){
+
+// Z=Phi+sin(sqrt(x^2+y^2))
+void sineWave3d(){
+  int   size=5;
+  float phase = -1.5;
+  float z=0;
+    for(int t=0; t<15; t++){
+      for(int i=0; i<8; i++)
+      {
+          phase=phase + 0.5;
+          phase = millis() /1000.0 * PI * 2 * 1;
+          for(int x = 0; x < size; x++){
+              for(int y = 0; y < size; y++){
+                  z = sin(phase + sqrt(pow(map(x,0,size-1,-PI,PI),2) + pow(map(y,0,size-1,-PI,PI),2)));
+                  //Serial.println(Z);
+                  z=map(z*100,-100,100,0,size-1);
+                  pixelSet(x,y,(int)z);
+              }
+          }
+          delay(85);
+          reset();
+      }
+    }
+}
+
+void cubeBorder(){
     //5x5x5 cube
     reset();
     for(int i=0;i<5;i++)
@@ -381,7 +412,18 @@ void rainFall(){
       pixelDel(rand_cols[numLeds] ,z);
       }
     pixelSet(rand_cols[numLeds] ,z);
-    delay(100);
+    delay(80);
+  }
+  for(int numLeds=0; numLeds<25; numLeds++){
+    z=0;
+    pixelDel(rand_cols[numLeds], z);
+    for(z=1;z<4;z++){
+      pixelSet(rand_cols[numLeds], z);
+      delay(20);
+      pixelDel(rand_cols[numLeds] ,z);
+      }
+    pixelSet(rand_cols[numLeds] ,z);
+    delay(80);
   }
   delay(700);
 }
@@ -393,15 +435,30 @@ void testLeds(){
     for(int j=0;j<5;j++)
         for(int m=0;m<5;m++){
           pixelSet(j,m,i);
-          delay(100);
+          delay(50);
           }
   }
+  delay(500);
 }
 
 void helicopter(){
-  for(uint8_t i = 0; i<8;i++)
+  for(uint8_t i=0;i<5;i++){
+    shiftReg[i]=heli[0];
+    delay(150);
+  }
+  for(uint8_t i = 0; i<24;i++)
   {
-    setAllRows(heli[i]);
+    setAllRows(heli[i%8]);
+    delay(250);
+  }
+  setAllRows(heli[0]);
+  delay(500);
+  for(uint8_t i=0;i<5;i++){
+    shiftReg[i]=heliFull[0];
+    delay(150);
+  }
+  for(uint8_t i=0;i<25;i++){
+    setAllRows(heliFull[i%4]);
     delay(250);
   }
 }

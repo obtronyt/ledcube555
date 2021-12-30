@@ -1,3 +1,11 @@
+
+'''
+
+Author: Obtron
+Use this as you please
+
+'''
+
 from tkinter import *
 from tkinter.ttk import *
 
@@ -6,18 +14,25 @@ import sys
 
 def toggle(id):
         global off
-        global ledOff
-        global ledOn
         id=int(id)
         if state[id] == 0:
-            button[id]['image']=ledOn
-            state[id]=1
-            pixelAdd(id)
+            TurnOn(id)
         else:
-            button[id]['image']=ledOff
-            state[id]=0
-            pixelDel(id)
+            TurnOff(id)
         display()
+
+def TurnOn(id):
+    global ledOn
+    button[id]['image']=ledOn
+    state[id]=1
+    pixelAdd(id)
+
+def TurnOff(id):
+    global ledOff
+    button[id]['image']=ledOff
+    state[id]=0
+    pixelDel(id)
+
 def pixelAdd(id):
     global regVal
     global v
@@ -69,14 +84,13 @@ def reset_win():
     global state
     global button
     global ledOff
-    print("lol")
     for i in range(5):
         regVal[i]=0
     display()
     for i in range(0,25):
         state[i]=0
         button[i]['image']=ledOff
-
+    
 regVal=[0,0,0,0,0]
 leds=list()
 state=list()
@@ -107,11 +121,10 @@ for i in range (5):
 v = StringVar(f2, "1")
 values = {"Top View" : "1","Front View" : "2"}
  
-# Loop is used to create multiple Radiobuttons
-# rather than creating each button separately
 for (text, value) in values.items():
     Radiobutton(f2, text = text, variable = v,value = value).pack()
+
 res=Button(f4, text="Reset", command=reset_win)
-res.grid(row=0)
+res.grid(row=0,column=0)
 disp.pack()
 win.mainloop()
