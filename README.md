@@ -3,7 +3,11 @@
 ![alt text](https://github.com/obtronyt/ledcube555/blob/master/Schematic.png?raw=true)  
   
 # Youtube Link  
-
+## Demo Video
+[![Demo](https://img.youtube.com/vi/gjpLUAW07vc/0.jpg)](https://www.youtube.com/watch?v=gjpLUAW07vc)  
+## Tutorial Video  
+[![Tutorial](https://img.youtube.com/vi/sywnBZfDddc/0.jpg)](https://www.youtube.com/watch?v=sywnBZfDddc)  
+  
 # How to make animations using Pattern Gen  
 1. Select Top View or Front View  
 2. Select Required LEDs per frame of animation  
